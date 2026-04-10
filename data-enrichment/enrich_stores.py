@@ -1,37 +1,40 @@
+import os
+import logging
 import googlemaps
 import pandas as pd
 from tqdm import tqdm
-tqdm.pandas()
 import gspread
 from google.oauth2.service_account import Credentials
-import gspread
 from gspread_dataframe import set_with_dataframe
 
-sheet_key = "1SL7mYtrgMmUdtvt6eykg4OOuefRtpRrUurvwfu_Jdck"
-api_key = AIzaSyBZnop8B8WL81k8ctL6YrHmsYH11cdvhgg
+tqdm.pandas()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+log = logging.getLogger(__name__)
+
+SHEET_KEY = os.environ["SHEET_KEY"]
+GOOGLE_MAPS_API_KEY = os.environ["GOOGLE_MAPS_API_KEY"]
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
 ]
 
-#Read data
-creds = Credentials.from_service_account_file("../credentials.json", scopes=SCOPES)
-client = gspread.authorize(creds)
 
-sheet = client.open_by_key(sheet_key).worksheet("customers")
-
-data = sheet.get_all_records()
-df = pd.DataFrame(data)
-
-#Add geo information
-gmaps = googlemaps.Client(key=api_key)
-
-def get_location_info(store_name):
-    result = gmaps.geocode(store_name + ", Sweden")
-    if not result:
+def get_location_info(store_name: str, gmaps: googlemaps.Client) -> tuple:
+    try:
+        result = gmaps.geocode(store_name + ", Sweden")
+    except Exception as e:
+        log.warning(f"Geocoding failed for '{store_name}': {e}")
         return None, None, None, None, None, None
-    
+
+    if not result:
+        log.warning(f"No geocoding result for '{store_name}'")
+        return None, None, None, None, None, None
+
     r = result[0]
     lat = r["geometry"]["location"]["lat"]
     lng = r["geometry"]["location"]["lng"]
@@ -41,15 +44,60 @@ def get_location_info(store_name):
     number = next((c["long_name"] for c in components if "street_number" in c["types"]), None)
     postal = next((c["long_name"] for c in components if "postal_code" in c["types"]), None)
     city = next((c["long_name"] for c in components if "postal_town" in c["types"]), None)
-    
+
     return city, street, number, postal, lat, lng
 
-df[["city_google", "address_google", "address_number_google", "postal_code_google", "latitude_google", "longitude_google"]] = df["customer"].progress_apply(lambda x: pd.Series(get_location_info(x)))
 
-#save data to new worksheet
-try:
-    worksheet = sheet.add_worksheet(title="customer_enriched", rows=1000, cols=20)
-except:
-    worksheet = sheet.worksheet("customer_enriched") 
+def main():
+    # Auth
+    creds = Credentials.from_service_account_file("../credentials.json", scopes=SCOPES)
+    client = gspread.authorize(creds)
+    spreadsheet = client.open_by_key(SHEET_KEY)
 
-set_with_dataframe(worksheet, df)
+    # Read source data
+    log.info("Reading customers sheet...")
+    source_sheet = spreadsheet.worksheet("customers")
+    df = pd.DataFrame(source_sheet.get_all_records())
+    log.info(f"Loaded {len(df)} customers")
+
+    # Load already-enriched data (if it exists) to skip processed rows
+    enriched_cols = ["city_google", "address_google", "address_number_google",
+                     "postal_code_google", "latitude_google", "longitude_google"]
+    try:
+        enriched_sheet = spreadsheet.worksheet("customer_enriched")
+        existing_df = pd.DataFrame(enriched_sheet.get_all_records())
+        already_done = set(existing_df["customer"].dropna().unique()) if "customer" in existing_df.columns else set()
+        log.info(f"Found {len(already_done)} already-enriched customers — skipping them")
+    except gspread.WorksheetNotFound:
+        existing_df = pd.DataFrame()
+        already_done = set()
+        log.info("No enriched sheet yet — starting fresh")
+
+    # Split into new vs already processed
+    needs_enrichment = df[~df["customer"].isin(already_done)].copy()
+    log.info(f"{len(needs_enrichment)} customers to enrich")
+
+    if needs_enrichment.empty:
+        log.info("Nothing to do — all customers already enriched")
+        return
+
+    # Geocode new rows
+    gmaps = googlemaps.Client(key=GOOGLE_MAPS_API_KEY)
+    needs_enrichment[enriched_cols] = needs_enrichment["customer"].progress_apply(
+        lambda x: pd.Series(get_location_info(x, gmaps))
+    )
+
+    # Combine with existing enriched data and write back
+    combined = pd.concat([existing_df, needs_enrichment], ignore_index=True)
+
+    try:
+        enriched_sheet = spreadsheet.worksheet("customer_enriched")
+    except gspread.WorksheetNotFound:
+        enriched_sheet = spreadsheet.add_worksheet(title="customer_enriched", rows=5000, cols=30)
+
+    set_with_dataframe(enriched_sheet, combined)
+    log.info(f"Done — wrote {len(combined)} total rows to 'customer_enriched'")
+
+
+if __name__ == "__main__":
+    main()

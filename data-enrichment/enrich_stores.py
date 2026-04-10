@@ -50,7 +50,8 @@ def get_location_info(store_name: str, gmaps: googlemaps.Client) -> tuple:
 
 def main():
     # Auth
-    creds = Credentials.from_service_account_file("../credentials.json", scopes=SCOPES)
+    creds_dict = json.loads(os.environ["GOOGLE_CREDENTIALS"])
+    creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
     client = gspread.authorize(creds)
     spreadsheet = client.open_by_key(SHEET_KEY)
 

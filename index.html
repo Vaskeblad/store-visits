@@ -652,6 +652,27 @@
       margin-bottom: 4px;
       border-bottom: 1px solid #f0f2f5;
     }
+    /* ── Map route planning bar ── */
+    .map-route-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      border-top: 1px solid #e8eaf0;
+      background: #f8f9fc;
+      flex-shrink: 0;
+      gap: 10px;
+    }
+    .map-route-bar span {
+      font-size: 0.78rem;
+      color: #888;
+      font-weight: 500;
+    }
+    .map-stop-item { cursor: pointer; user-select: none; }
+    .map-stop-item:active { background: #f5f7fa; border-radius: 6px; }
+    .stop-num.route-start { background: #22c55e; }
+    .stop-num.route-stop  { background: #3b82f6; }
+    .map-stop-item.route-selected { background: #f0f7ff; border-radius: 6px; padding-left: 4px; padding-right: 4px; }
   </style>
 </head>
 <body>
@@ -659,17 +680,17 @@
 <!-- ═══════════════ LOGIN ═══════════════ -->
 <div id="login-screen">
   <h2>Store Tracker</h2>
-  <p>Enter password to continue</p>
-  <input type="password" id="login-password" placeholder="Password" />
+  <p>Ange lösenord för att fortsätta</p>
+  <input type="password" id="login-password" placeholder="Lösenord" />
   <div id="login-error"></div>
-  <button id="login-btn">Sign In</button>
+  <button id="login-btn">Logga in</button>
 </div>
 
 <!-- ═══════════════ LOADER ═══════════════ -->
 <div id="app-loader">
   <div class="spinner"></div>
   <h2>Store Tracker</h2>
-  <p>Loading stores...</p>
+  <p>Laddar butiker...</p>
 </div>
 
 <div id="detail-loader"><div class="spinner"></div></div>
@@ -679,55 +700,52 @@
 <div class="view active" id="view-list">
   <div class="header">
     <div class="header-text">
-      <h1 id="list-title">Stores</h1>
-      <p id="subtitle">Loading...</p>
+      <h1 id="list-title">Butiker</h1>
+      <p id="subtitle">Laddar...</p>
     </div>
-    <button class="route-mode-btn" id="route-mode-btn">&#128205; Plan Route</button>
+    <button class="route-mode-btn" id="route-mode-btn">&#128205; Visa karta</button>
   </div>
 
   <div class="toolbar">
-    <input type="search" id="search-input" placeholder="Search store..." />
+    <input type="search" id="search-input" placeholder="Sök butik..." />
     <div class="dropdowns">
       <div class="ms-wrap" id="ms-wrap-segment">
-        <button class="ms-btn" id="ms-btn-segment">All segments</button>
+        <button class="ms-btn" id="ms-btn-segment">Alla segment</button>
         <div class="ms-panel" id="ms-panel-segment"></div>
       </div>
       <div class="ms-wrap" id="ms-wrap-responsible">
-        <button class="ms-btn" id="ms-btn-responsible">All responsible</button>
+        <button class="ms-btn" id="ms-btn-responsible">Alla ansvariga</button>
         <div class="ms-panel" id="ms-panel-responsible"></div>
       </div>
       <div class="ms-wrap" id="ms-wrap-city">
-        <button class="ms-btn" id="ms-btn-city">All cities</button>
+        <button class="ms-btn" id="ms-btn-city">Alla städer</button>
         <div class="ms-panel" id="ms-panel-city"></div>
       </div>
     </div>
     <div class="dropdowns">
-      <div class="ms-wrap" id="ms-wrap-missed">
-        <button class="ms-btn" id="ms-btn-missed">Uppföljning</button>
-        <div class="ms-panel" id="ms-panel-missed"></div>
-      </div>
+      <button class="ms-btn" id="ms-btn-missed">Missad uppföljning</button>
       <div class="ms-wrap" id="ms-wrap-risk">
         <button class="ms-btn" id="ms-btn-risk">Risk</button>
         <div class="ms-panel" id="ms-panel-risk"></div>
       </div>
-      <div class="ms-wrap" id="ms-wrap-delivery" style="position:relative">
-        <button class="ms-btn" id="ms-btn-delivery">Leverans från</button>
-        <input type="date" id="filter-delivery-date" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer" />
+      <div class="ms-wrap" id="ms-wrap-delivery">
+        <button class="ms-btn" id="ms-btn-delivery">Senaste leverans</button>
+        <div class="ms-panel" id="ms-panel-delivery"></div>
       </div>
     </div>
     <button id="clear-filters-btn" style="display:none;background:none;border:none;color:#e74c3c;font-size:0.8rem;font-weight:600;cursor:pointer;padding:2px 0 0;text-align:left;">✕ Rensa filter</button>
   </div>
 
   <div class="list-body" id="customer-list">
-    <div class="state-msg">Loading...</div>
+    <div class="state-msg">Laddar...</div>
   </div>
 
   <!-- Route mode action bar -->
   <div class="route-action-bar" id="route-action-bar" style="display:none">
-    <div class="route-selected-count" id="route-selected-count">0 stores selected</div>
+    <div class="route-selected-count" id="route-selected-count">0 butiker valda</div>
     <div style="display:flex;gap:8px">
-      <button class="action-btn secondary" id="route-cancel-btn" style="margin:0;padding:10px 16px;font-size:0.85rem">Cancel</button>
-      <button class="action-btn" id="plan-route-btn" disabled style="margin:0;padding:10px 16px;font-size:0.85rem">Show Route</button>
+      <button class="action-btn secondary" id="route-cancel-btn" style="margin:0;padding:10px 16px;font-size:0.85rem">Avbryt</button>
+      <button class="action-btn" id="plan-route-btn" disabled style="margin:0;padding:10px 16px;font-size:0.85rem">Visa karta</button>
     </div>
   </div>
 </div>
@@ -763,7 +781,7 @@
           <div class="meta-value" id="d-next-followup">—</div>
         </div>
         <div class="overview-meta-item">
-          <div class="meta-label">SENAST KONTAKT</div>
+          <div class="meta-label">SENASTE KONTAKT</div>
           <div class="meta-value" id="d-last-contact">—</div>
         </div>
         <div class="overview-meta-item">
@@ -786,7 +804,7 @@
           <div class="stat-value" id="d-order-count">—</div>
         </div>
         <div class="order-stat">
-          <div class="stat-label">SENAST LEVERANS</div>
+          <div class="stat-label">SENASTE LEVERANS</div>
           <div class="stat-value" id="d-latest-order">—</div>
         </div>
       </div>
@@ -829,7 +847,7 @@
   <div class="header">
     <button class="back-btn" id="form-back-btn">&#8592;</button>
     <div class="header-text">
-      <h1>Log Visit</h1>
+      <h1>Logga besök</h1>
       <p id="form-header-customer"></p>
     </div>
   </div>
@@ -839,52 +857,52 @@
 
       <input type="hidden" id="f-date" />
       <div class="form-field">
-        <label>Seller</label>
-        <input type="text" id="f-seller" placeholder="Your name" />
+        <label>Säljare</label>
+        <input type="text" id="f-seller" placeholder="Ditt namn" />
       </div>
       <div class="form-field">
-        <label>Contact Person</label>
-        <input type="text" id="f-contactPerson" placeholder="Name at store" />
+        <label>Kontaktperson</label>
+        <input type="text" id="f-contactPerson" placeholder="Namn på butiken" />
       </div>
       <div class="form-field">
-        <label>Channel</label>
+        <label>Kanal</label>
         <select id="f-channel">
-          <option value="">Select...</option>
-          <option>Phone</option>
+          <option value="">Välj...</option>
+          <option>Telefon</option>
           <option>Email</option>
-          <option>Visit</option>
-          <option>Meeting</option>
-          <option>Other</option>
+          <option>Besök</option>
+          <option>Möte</option>
+          <option>Annat</option>
         </select>
       </div>
       <div class="form-field">
-        <label>Result</label>
+        <label>Resultat</label>
         <select id="f-result">
-          <option value="">Select...</option>
-          <option>Positive</option>
-          <option>Neutral</option>
-          <option>Negative</option>
-          <option>Follow-up needed</option>
-          <option>Order placed</option>
+          <option value="">Välj...</option>
+          <option>Positivt</option>
+          <option>Neutralt</option>
+          <option>Negativt</option>
+          <option>Uppföljning behövs</option>
+          <option>Order lagd</option>
         </select>
       </div>
       <div class="form-field">
-        <label>Comment</label>
-        <textarea id="f-comment" placeholder="Notes from the interaction..."></textarea>
+        <label>Kommentar</label>
+        <textarea id="f-comment" placeholder="Anteckningar från mötet..."></textarea>
       </div>
       <div class="form-field">
-        <label>Next Follow-up</label>
+        <label>Nästa uppföljning</label>
         <input type="date" id="f-nextFollowUp" />
       </div>
       <div class="form-field">
-        <label>Order in Stockfiller</label>
+        <label>Order i Stockfiller</label>
         <input type="text" id="f-orderInStockfiller" placeholder="" />
       </div>
 
     </div>
 
-    <button class="action-btn" id="form-save-btn">Log Visit</button>
-    <button class="action-btn secondary" id="form-cancel-btn">Cancel</button>
+    <button class="action-btn" id="form-save-btn">Logga besök</button>
+    <button class="action-btn secondary" id="form-cancel-btn">Avbryt</button>
   </div>
 </div>
 
@@ -894,11 +912,15 @@
   <div class="header">
     <button class="back-btn" id="map-back-btn">&#8592;</button>
     <div class="header-text">
-      <h1>Route</h1>
+      <h1>Karta</h1>
       <p id="map-subtitle"></p>
     </div>
   </div>
   <div id="map"></div>
+  <div class="map-route-bar" id="map-route-bar">
+    <span id="map-route-count">Välj butiker nedan för rutt</span>
+    <button class="action-btn" id="map-gmaps-btn" disabled style="margin:0;padding:8px 14px;font-size:0.8rem">&#127758; Öppna i Google Maps</button>
+  </div>
   <div class="map-stop-list" id="map-stop-list"></div>
 </div>
 
@@ -923,7 +945,7 @@
       loadInsights();
     } catch {
       document.getElementById("customer-list").innerHTML =
-        '<div class="state-msg">Could not connect to server.</div>';
+        '<div class="state-msg">Kunde inte ansluta till servern.</div>';
     } finally {
       const loader = document.getElementById("app-loader");
       loader.classList.add("hidden");
@@ -932,28 +954,44 @@
   }
 
   // ── Multi-select filter state ──
-  const filterState = { segment: new Set(), responsible: new Set(), city: new Set(), missed: new Set(), risk: new Set() };
+  const filterState = { segment: new Set(), responsible: new Set(), city: new Set(), missed: new Set(), risk: new Set(), delivery: new Set() };
 
   async function loadInsights() {
     try {
       const res = await fetch(`${API}/customer-insights`);
+      if (!res.ok) throw new Error();
       insights = await res.json();
       buildInsightDropdowns();
       renderList();
-    } catch {}
+    } catch {
+      showToast("Kunde inte ladda kundinsikter – risk och uppföljning visas inte");
+    }
   }
 
+  document.getElementById("ms-btn-missed").addEventListener("click", () => {
+    const active = filterState.missed.size > 0;
+    if (active) filterState.missed.clear();
+    else filterState.missed.add("Missad uppföljning");
+    document.getElementById("ms-btn-missed").classList.toggle("active-filter", !active);
+    updateClearBtn();
+    renderList();
+  });
+
   function buildInsightDropdowns() {
-    setupMultiSelect("missed", "ms-btn-missed", "ms-panel-missed", ["Missad uppföljning", "OK"], "Uppföljning");
     setupMultiSelect("risk",   "ms-btn-risk",   "ms-panel-risk",   ["FÖRLORAD?", "HÖG RISK", "RISK", "OK"], "Risk");
+
+    const months = [...new Set(
+      Object.values(insights).map(i => i.latest_delivery_month).filter(Boolean)
+    )].sort().reverse();
+    setupMultiSelect("delivery", "ms-btn-delivery", "ms-panel-delivery", months, "Senaste leverans");
   }
 
   // ── Build multi-select dropdowns ──
   function buildDropdowns() {
     const unique = (key) => [...new Set(customers.map(c => c[key]).filter(Boolean))].sort();
-    setupMultiSelect("segment",     "ms-btn-segment",     "ms-panel-segment",     unique("customerSegment"),   "All segments");
-    setupMultiSelect("responsible", "ms-btn-responsible", "ms-panel-responsible", unique("customerResponsible"), "All responsible");
-    setupMultiSelect("city",        "ms-btn-city",        "ms-panel-city",        unique("city"),              "All cities");
+    setupMultiSelect("segment",     "ms-btn-segment",     "ms-panel-segment",     unique("customerSegment"),   "Alla segment");
+    setupMultiSelect("responsible", "ms-btn-responsible", "ms-panel-responsible", unique("customerResponsible"), "Alla ansvariga");
+    setupMultiSelect("city",        "ms-btn-city",        "ms-panel-city",        unique("city"),              "Alla städer");
   }
 
   function setupMultiSelect(key, btnId, panelId, values, placeholder) {
@@ -1000,36 +1038,22 @@
   }
 
   function updateClearBtn() {
-    const anyActive = Object.values(filterState).some(s => s.size > 0) || !!document.getElementById("filter-delivery-date").value;
+    const anyActive = Object.values(filterState).some(s => s.size > 0);
     document.getElementById("clear-filters-btn").style.display = anyActive ? "block" : "none";
   }
 
 
-  // ── Delivery date filter ──
-  const deliveryBtn   = document.getElementById("ms-btn-delivery");
-  const deliveryPanel = document.getElementById("ms-panel-delivery");
-  const deliveryInput = document.getElementById("filter-delivery-date");
-
-  deliveryInput.addEventListener("change", () => {
-    const val = deliveryInput.value;
-    deliveryBtn.textContent = val ? val : "Leverans från";
-    deliveryBtn.classList.toggle("active-filter", !!val);
-    updateClearBtn();
-    renderList();
-  });
 
   document.getElementById("clear-filters-btn").addEventListener("click", () => {
-    ["segment", "responsible", "city", "missed", "risk"].forEach(key => filterState[key].clear());
+    ["segment", "responsible", "city", "missed", "risk", "delivery"].forEach(key => filterState[key].clear());
     document.querySelectorAll(".ms-panel input[type=checkbox]").forEach(cb => cb.checked = false);
-    document.getElementById("ms-btn-segment").textContent = "All segments";
-    document.getElementById("ms-btn-responsible").textContent = "All responsible";
-    document.getElementById("ms-btn-city").textContent = "All cities";
+    document.getElementById("ms-btn-segment").textContent = "Alla segment";
+    document.getElementById("ms-btn-responsible").textContent = "Alla ansvariga";
+    document.getElementById("ms-btn-city").textContent = "Alla städer";
     document.querySelectorAll(".ms-btn").forEach(b => b.classList.remove("active-filter"));
-    document.getElementById("ms-btn-missed").textContent = "Uppföljning";
+    document.getElementById("ms-btn-missed").classList.remove("active-filter");
     document.getElementById("ms-btn-risk").textContent = "Risk";
-    deliveryInput.value = "";
-    deliveryBtn.textContent = "Leverans från";
-    deliveryBtn.classList.remove("active-filter");
+    document.getElementById("ms-btn-delivery").textContent = "Senaste leverans";
     document.getElementById("clear-filters-btn").style.display = "none";
     renderList();
   });
@@ -1051,24 +1075,22 @@
     if (filterState.city.size)        filtered = filtered.filter(c => filterState.city.has(c.city));
     if (filterState.missed.size) filtered = filtered.filter(c => {
       const ins = insights[c.customer.toLowerCase()];
-      const val = ins?.missad_uppfoljning ? "Missad uppföljning" : "OK";
-      return filterState.missed.has(val);
+      return ins?.missad_uppfoljning;
     });
     if (filterState.risk.size) filtered = filtered.filter(c => {
       const ins = insights[c.customer.toLowerCase()];
       return filterState.risk.has(ins?.customer_risk || "");
     });
-    const deliveryFrom = document.getElementById("filter-delivery-date").value;
-    if (deliveryFrom) filtered = filtered.filter(c => {
+    if (filterState.delivery.size) filtered = filtered.filter(c => {
       const ins = insights[c.customer.toLowerCase()];
-      return ins?.latest_delivery_date && ins.latest_delivery_date >= deliveryFrom;
+      return filterState.delivery.has(ins?.latest_delivery_month || "");
     });
 
     document.getElementById("subtitle").textContent =
-      `${filtered.length} of ${customers.length} stores`;
+      `${filtered.length} av ${customers.length} butiker`;
 
     if (filtered.length === 0) {
-      list.innerHTML = '<div class="state-msg">No stores match.</div>';
+      list.innerHTML = '<div class="state-msg">Inga butiker matchar.</div>';
       return;
     }
 
@@ -1235,7 +1257,7 @@
       const stats = await res.json();
       applyStats(stats);
     } catch (e) {
-      showToast("Could not refresh contact history.");
+      showToast("Kunde inte uppdatera besökshistorik.");
     }
   }
 
@@ -1244,7 +1266,8 @@
     document.getElementById("d-total-sales").textContent =
       stats.total_sales.toLocaleString("sv-SE", { minimumFractionDigits: 2 }) +
       (stats.currency ? " " + stats.currency : "");
-    document.getElementById("d-latest-order").textContent = stats.latest_order_date;
+    const ins = currentCustomer ? insights[currentCustomer.customer.toLowerCase()] : null;
+    document.getElementById("d-latest-order").textContent = ins?.latest_delivery_date || "—";
     renderContactList(stats.contacts);
   }
 
@@ -1337,13 +1360,13 @@
     };
 
     if (!payload.comment.trim()) {
-      showToast("Comment is required.");
+      showToast("Kommentar är obligatorisk.");
       document.getElementById("f-comment").focus();
       return;
     }
 
     btn.disabled = true;
-    btn.textContent = "Saving...";
+    btn.textContent = "Sparar...";
 
     try {
       const res = await fetch(`${API}/customers/${encodeURIComponent(currentCustomer.customer)}/contacts`, {
@@ -1352,17 +1375,18 @@
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        showToast("Contact saved!");
+        showToast("Besök sparat!");
         showView("detail");
         refreshStats(currentCustomer);
+        loadInsights();
       } else {
-        showToast("Save failed. Try again.");
+        showToast("Kunde inte spara. Försök igen.");
       }
     } catch {
-      showToast("Network error. Try again.");
+      showToast("Nätverksfel. Försök igen.");
     } finally {
       btn.disabled = false;
-      btn.textContent = "Log Visit";
+      btn.textContent = "Logga besök";
     }
   });
 
@@ -1393,12 +1417,13 @@
   let selectedRouteRows = new Set();
   let routeMode = false;
   let leafletMap = null;
-  let routeLayer = null;
+  let mapStops = [];        // all stores shown on the map
+  let routeInMapStops = []; // ordered selection for Google Maps route
 
   function enterRouteMode() {
     routeMode = true;
     selectedRouteRows.clear();
-    document.getElementById("list-title").textContent = "Plan Route";
+    document.getElementById("list-title").textContent = "Välj butiker";
     document.getElementById("route-mode-btn").style.display = "none";
     document.getElementById("route-action-bar").style.display = "flex";
     document.getElementById("customer-list").classList.add("route-mode");
@@ -1409,7 +1434,7 @@
   function exitRouteMode() {
     routeMode = false;
     selectedRouteRows.clear();
-    document.getElementById("list-title").textContent = "Stores";
+    document.getElementById("list-title").textContent = "Butiker";
     document.getElementById("route-mode-btn").style.display = "";
     document.getElementById("route-action-bar").style.display = "none";
     document.getElementById("customer-list").classList.remove("route-mode");
@@ -1418,7 +1443,7 @@
 
   document.getElementById("route-mode-btn").addEventListener("click", enterRouteMode);
   document.getElementById("route-cancel-btn").addEventListener("click", exitRouteMode);
-  document.getElementById("plan-route-btn").addEventListener("click", showRouteMap);
+  document.getElementById("plan-route-btn").addEventListener("click", showMapView);
 
   function toggleRouteSelection(row) {
     const c = customers.find(c => c.row === row);
@@ -1427,12 +1452,11 @@
       selectedRouteRows.delete(row);
     } else {
       if (selectedRouteRows.size >= 10) {
-        showToast("Maximum 10 stores");
+        showToast("Maximum 10 butiker");
         return;
       }
       selectedRouteRows.add(row);
     }
-    // Update just this card's selected state
     const card = document.querySelector(`.customer-card[data-row="${row}"]`);
     if (card) {
       card.classList.toggle("route-selected", selectedRouteRows.has(row));
@@ -1444,107 +1468,133 @@
   function updateRouteCount() {
     const n = selectedRouteRows.size;
     document.getElementById("route-selected-count").textContent =
-      `${n} store${n !== 1 ? "s" : ""} selected`;
-    document.getElementById("plan-route-btn").disabled = n < 2;
+      `${n} butik${n !== 1 ? "er" : ""} vald${n !== 1 ? "a" : ""}`;
+    document.getElementById("plan-route-btn").disabled = n < 1;
   }
 
   document.getElementById("map-back-btn").addEventListener("click", () => {
     showView("list");
   });
 
-  async function showRouteMap() {
-    const stops = [...selectedRouteRows]
+  document.getElementById("map-gmaps-btn").addEventListener("click", openInGoogleMaps);
+
+  // ── Show map with all selected stores (no route yet) ──
+  function showMapView() {
+    mapStops = [...selectedRouteRows]
       .map(row => customers.find(c => c.row === row))
       .filter(c => c && c.latitude && c.longitude);
 
-    if (stops.length < 2) {
-      showToast("Need at least 2 stores with coordinates");
+    if (mapStops.length < 1) {
+      showToast("Välj minst en butik med koordinater");
       return;
     }
 
+    routeInMapStops = [];
     showView("map");
+    initLeaflet();
+    renderMapMarkers();
+    fitMapToBounds(mapStops);
+    document.getElementById("map-subtitle").textContent = `${mapStops.length} butik${mapStops.length !== 1 ? "er" : ""}`;
+    renderMapStopList();
+  }
 
-    // Init map once
+  function initLeaflet() {
     if (!leafletMap) {
       leafletMap = L.map("map");
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors"
       }).addTo(leafletMap);
     } else {
-      if (routeLayer) { leafletMap.removeLayer(routeLayer); routeLayer = null; }
-      leafletMap.eachLayer(layer => {
-        if (layer instanceof L.Marker) leafletMap.removeLayer(layer);
-      });
+      clearMapLayers();
     }
+    setTimeout(() => leafletMap.invalidateSize(), 100);
+  }
 
-    // Fetch optimized route from OSRM
-    const coords = stops.map(c => `${c.longitude},${c.latitude}`).join(";");
-    let orderedStops = stops;
-    let distanceKm = null;
+  function clearMapLayers() {
+    leafletMap.eachLayer(layer => {
+      if (layer instanceof L.Marker) leafletMap.removeLayer(layer);
+    });
+  }
 
-    try {
-      const url = `https://router.project-osrm.org/trip/v1/driving/${coords}?roundtrip=false&source=first&annotations=false&overview=full&geometries=geojson`;
-      const res = await fetch(url);
-      const data = await res.json();
+  function fitMapToBounds(stops) {
+    const bounds = L.latLngBounds(stops.map(c => [c.latitude, c.longitude]));
+    leafletMap.fitBounds(bounds, { padding: [40, 40] });
+  }
 
-      if (data.code === "Ok") {
-        // wp.waypoint_index = position in optimized trip
-        // index in data.waypoints = position in original stops array
-        orderedStops = new Array(stops.length);
-        data.waypoints.forEach((wp, inputIdx) => {
-          orderedStops[wp.waypoint_index] = stops[inputIdx];
-        });
-
-        distanceKm = (data.trips[0].distance / 1000).toFixed(1);
-
-        // Draw route line
-        routeLayer = L.geoJSON(data.trips[0].geometry, {
-          style: { color: "#1a1a2e", weight: 4, opacity: 0.8 }
-        }).addTo(leafletMap);
-      }
-    } catch {}
-
-    // Add numbered markers
-    orderedStops.forEach((c, idx) => {
+  function renderMapMarkers() {
+    clearMapLayers();
+    mapStops.forEach(c => {
+      const routeIdx = routeInMapStops.findIndex(r => r.row === c.row);
+      const inRoute = routeIdx !== -1;
+      const isFirst = routeIdx === 0;
+      const bg = inRoute ? (isFirst ? "#22c55e" : "#3b82f6") : "#6b7280";
+      const size = inRoute ? 22 : 18;
       const icon = L.divIcon({
         className: "",
-        html: `<div style="background:#1a1a2e;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)">${idx + 1}</div>`,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        html: `<div style="background:${bg};width:${size}px;height:${size}px;border-radius:50%;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>`,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
       });
       L.marker([c.latitude, c.longitude], { icon })
         .addTo(leafletMap)
         .bindPopup(`<b>${c.customer}</b><br>${c.city}`);
     });
+  }
 
-    // Fit map to stops
-    const bounds = L.latLngBounds(orderedStops.map(c => [c.latitude, c.longitude]));
-    leafletMap.fitBounds(bounds, { padding: [40, 40] });
-    setTimeout(() => leafletMap.invalidateSize(), 100);
+  function toggleMapStop(row) {
+    const c = mapStops.find(s => s.row === row);
+    if (!c) return;
+    const idx = routeInMapStops.findIndex(s => s.row === row);
+    if (idx !== -1) {
+      routeInMapStops.splice(idx, 1);
+    } else {
+      routeInMapStops.push(c);
+    }
+    renderMapMarkers();
+    renderMapStopList();
+    updateMapRouteBar();
+  }
 
-    // Update subtitle and stop list
-    document.getElementById("map-subtitle").textContent =
-      distanceKm ? `${orderedStops.length} stops · ${distanceKm} km` : `${orderedStops.length} stops`;
+  function updateMapRouteBar() {
+    const n = routeInMapStops.length;
+    document.getElementById("map-route-count").textContent =
+      n === 0 ? "Välj butiker nedan för rutt"
+              : `${n} butik${n !== 1 ? "er" : ""} vald${n !== 1 ? "a" : ""} för rutt`;
+    document.getElementById("map-gmaps-btn").disabled = n < 2;
+  }
 
-    document.getElementById("map-stop-list").innerHTML = `
-      ${distanceKm ? `<div class="map-summary">Optimized route · ${distanceKm} km total</div>` : ""}
-      ${orderedStops.map((c, idx) => `
-        <div class="map-stop-item" data-row="${c.row}" style="cursor:pointer">
-          <div class="stop-num">${idx + 1}</div>
+  function renderMapStopList() {
+    document.getElementById("map-stop-list").innerHTML = mapStops.map(c => {
+      const routeIdx = routeInMapStops.findIndex(r => r.row === c.row);
+      const inRoute = routeIdx !== -1;
+      const isFirst = routeIdx === 0;
+      const dotColor = inRoute ? (isFirst ? "#22c55e" : "#3b82f6") : "#d1d5db";
+      const dot = `<div style="width:14px;height:14px;border-radius:50%;background:${dotColor};flex-shrink:0"></div>`;
+      return `
+        <div class="map-stop-item${inRoute ? " route-selected" : ""}" data-row="${c.row}">
+          ${dot}
           <div class="stop-info">
             <div class="stop-name">${esc(c.customer)}</div>
             <div class="stop-city">${esc(c.city)}</div>
           </div>
         </div>
-      `).join("")}
-    `;
+      `;
+    }).join("");
 
     document.querySelectorAll(".map-stop-item").forEach(item => {
-      item.addEventListener("click", () => {
-        detailReturnView = "map";
-        openDetail(Number(item.dataset.row));
-      });
+      item.addEventListener("click", () => toggleMapStop(Number(item.dataset.row)));
     });
+    updateMapRouteBar();
+  }
+
+
+  function openInGoogleMaps() {
+    if (routeInMapStops.length < 2) return;
+    const origin = `${routeInMapStops[0].latitude},${routeInMapStops[0].longitude}`;
+    const destination = `${routeInMapStops[routeInMapStops.length - 1].latitude},${routeInMapStops[routeInMapStops.length - 1].longitude}`;
+    const waypoints = routeInMapStops.slice(1, -1).map(c => `${c.latitude},${c.longitude}`).join("|");
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ""}`;
+    window.open(url, "_blank");
   }
 
   // ══════════════════════════════════════
@@ -1567,7 +1617,7 @@
       loginScreen.classList.add("hidden");
       loadCustomers();
     } else {
-      document.getElementById("login-error").textContent = "Incorrect password";
+      document.getElementById("login-error").textContent = "Fel lösenord";
     }
   });
 

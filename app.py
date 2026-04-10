@@ -28,13 +28,18 @@ CONTACT_COLUMNS = ["date", "seller", "customer", "channel", "result", "comment",
                    "contactPerson", "nextFollowUp", "orderInStockfiller"]
 
 
+_spreadsheet_cache = None
+
 def get_spreadsheet():
-    env_creds = os.environ.get("GOOGLE_CREDENTIALS")
-    if env_creds:
-        creds = Credentials.from_service_account_info(json.loads(env_creds), scopes=SCOPES)
-    else:
-        creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
-    return gspread.authorize(creds).open_by_key(SHEET_ID)
+    global _spreadsheet_cache
+    if _spreadsheet_cache is None:
+        env_creds = os.environ.get("GOOGLE_CREDENTIALS")
+        if env_creds:
+            creds = Credentials.from_service_account_info(json.loads(env_creds), scopes=SCOPES)
+        else:
+            creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
+        _spreadsheet_cache = gspread.authorize(creds).open_by_key(SHEET_ID)
+    return _spreadsheet_cache
 
 
 def rows_to_dicts(rows, columns):
@@ -189,10 +194,12 @@ def get_customer_insights():
             except ValueError:
                 risk = ""
 
+        ld = latest_delivery.get(name, "")
         insights[name] = {
             "missad_uppfoljning": missad,
             "customer_risk": risk,
-            "latest_delivery_date": latest_delivery.get(name, ""),
+            "latest_delivery_date": ld,
+            "latest_delivery_month": ld[:7] if ld else "",  # "YYYY-MM"
         }
 
     return jsonify(insights)

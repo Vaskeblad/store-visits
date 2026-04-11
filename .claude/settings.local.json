@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(venv/Scripts/pip freeze:*)"
+      "Bash(venv/Scripts/pip freeze:*)",
+      "Bash(venv/Scripts/python -c ':*)",
+      "Bash(venv/Scripts/pip install:*)"
     ]
   }
 }

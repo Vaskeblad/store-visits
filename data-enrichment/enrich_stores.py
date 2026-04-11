@@ -2,6 +2,9 @@ import os
 import logging
 import json
 import googlemaps
+from dotenv import load_dotenv
+
+load_dotenv()
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
@@ -92,13 +95,13 @@ def main():
     # Combine with existing enriched data and write back
     combined = pd.concat([existing_df, needs_enrichment], ignore_index=True)
 
-    try:
-        enriched_sheet = spreadsheet.worksheet("customers_enriched")
-    except gspread.WorksheetNotFound:
-        enriched_sheet = spreadsheet.add_worksheet(title="customers_enriched", rows=5000, cols=30)
+    # try:
+    #     enriched_sheet = spreadsheet.worksheet("customers_enriched")
+    # except gspread.WorksheetNotFound:
+    #     enriched_sheet = spreadsheet.add_worksheet(title="customers_enriched", rows=5000, cols=30)
 
-    set_with_dataframe(enriched_sheet, combined)
-    log.info(f"Done — wrote {len(combined)} total rows to 'customers_enriched'")
+    # set_with_dataframe(enriched_sheet, combined)
+    # log.info(f"Done — wrote {len(combined)} total rows to 'customers_enriched'")
 
 
 if __name__ == "__main__":

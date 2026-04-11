@@ -6,26 +6,28 @@ from urllib.parse import unquote
 from datetime import datetime, date
 import os
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-SHEET_ID = "1uWhuacNGdhfIfA9mQjI04fR23ZCa6rGeXrlyNLbxEwc"
-CREDS_FILE = "credentials.json"
+SHEET_ID = os.environ.get("SHEET_KEY", "")
 
-CUSTOMER_COLUMNS = ["customer", "city", "region", "customerResponsible", "customerSegment",
-                    "customerReference", "address", "phoneNumber", "email", "contactPerson"]
+CUSTOMER_COLUMNS = ["customer", "region", "sales_person", "customer_segment",
+                    "customer_reference", "customer_number", "adress_number",
+                    "postal_code", "phone", "email"]
 
-ORDER_COLUMNS = ["reference", "orderDate", "deliveryDate", "customer", "customerReference",
-                 "buyerNumber", "customerNumber", "logisticsNumber", "address", "number",
-                 "postalCode", "city", "country", "phoneNumber", "sku", "product", "weight",
-                 "quantity", "totalWeight", "unit", "totalPreDiscount", "productDiscount",
-                 "total", "currency", "orderDiscountAmount", "orderDiscountPercentage",
-                 "batch", "column1"]
+ORDER_COLUMNS = ["Reference", "Order date", "Delivery date", "Customer", "Customer Reference",
+                 "Buyer number", "Customer number", "Logistics number", "Address", "Number",
+                 "Postal code", "City", "Country", "Phone number", "SKU", "Product", "Weight",
+                 "Quantity", "Total weight", "Unit", "Total (Pre-discount)", "Product Discount",
+                 "Total", "Currency", "Order Discount (Amount)", "Order Discount (%)", "Batch"]
 
-CONTACT_COLUMNS = ["date", "seller", "customer", "channel", "result", "comment",
-                   "contactPerson", "nextFollowUp", "orderInStockfiller"]
+CONTACT_COLUMNS = ["date_time", "sales_person", "customer", "contact_channel", "result",
+                   "comment", "customer_contact_person", "follow_up_date"]
 
 
 _spreadsheet_cache = None
@@ -33,11 +35,7 @@ _spreadsheet_cache = None
 def get_spreadsheet():
     global _spreadsheet_cache
     if _spreadsheet_cache is None:
-        env_creds = os.environ.get("GOOGLE_CREDENTIALS")
-        if env_creds:
-            creds = Credentials.from_service_account_info(json.loads(env_creds), scopes=SCOPES)
-        else:
-            creds = Credentials.from_service_account_file(CREDS_FILE, scopes=SCOPES)
+        creds = Credentials.from_service_account_info(json.loads(os.environ["GOOGLE_CREDENTIALS"]), scopes=SCOPES)
         _spreadsheet_cache = gspread.authorize(creds).open_by_key(SHEET_ID)
     return _spreadsheet_cache
 
@@ -58,32 +56,37 @@ def index():
 @app.route("/customers", methods=["GET"])
 def get_customers():
     spreadsheet = get_spreadsheet()
-    sheet = spreadsheet.worksheet("kundtabell")
+    sheet = spreadsheet.worksheet("customers_enriched")
     all_rows = sheet.get_all_values()
     headers = all_rows[0]
 
-    # Build latest nextFollowUp per customer from kundkontakter
-    contact_rows = rows_to_dicts(spreadsheet.worksheet("kundkontakter").get_all_values()[1:], CONTACT_COLUMNS)
+    # Build latest follow_up_date per customer from sales_activities
+    contact_rows = rows_to_dicts(spreadsheet.worksheet("sales_activities").get_all_values()[1:], CONTACT_COLUMNS)
     latest_followup = {}
     for c in contact_rows:
         name = c["customer"].strip().lower()
-        nf = c["nextFollowUp"].strip()
+        nf = c["follow_up_date"].strip()
         if nf and (name not in latest_followup or nf > latest_followup[name]):
             latest_followup[name] = nf
+
+    def parse_coord(val):
+        try:
+            return float(val.replace(",", ".")) if val else None
+        except ValueError:
+            return None
 
     customers = []
     for i, row in enumerate(all_rows[1:], start=2):
         padded = row + [""] * (len(headers) - len(row))
         d = dict(zip(headers, padded))
         customer = {col: d.get(col, "") for col in CUSTOMER_COLUMNS}
-        def parse_coord(val):
-            try:
-                return float(val.replace(",", ".")) if val else None
-            except ValueError:
-                return None
-        customer["latitude"]  = parse_coord(d.get("latitude",  ""))
-        customer["longitude"] = parse_coord(d.get("longitude", ""))
-        customer["nextFollowUp"] = latest_followup.get(customer["customer"].strip().lower(), "")
+        customer["latitude"]  = parse_coord(d.get("latitude_google") or d.get("latitude",  ""))
+        customer["longitude"] = parse_coord(d.get("longitude_google") or d.get("longitude", ""))
+        addr = d.get("address_google", "").strip()
+        num  = d.get("address_number_google", "").strip()
+        customer["address"] = f"{addr} {num}".strip()
+        customer["city"] = d.get("city_google", "").strip() or d.get("city", "")
+        customer["follow_up_date"] = latest_followup.get(customer["customer"].strip().lower(), "")
         customers.append({"row": i, **customer})
     return jsonify(customers)
 
@@ -94,37 +97,37 @@ def get_customer_stats(customer_name):
     spreadsheet = get_spreadsheet()
 
     # Orders
-    order_rows = rows_to_dicts(spreadsheet.worksheet("ordertabell").get_all_values()[1:], ORDER_COLUMNS)
+    order_rows = rows_to_dicts(spreadsheet.worksheet("order_rows").get_all_values()[1:], ORDER_COLUMNS)
     total_sales = 0.0
     latest_order_date = None
     currency = ""
 
     unique_references = set()
     for o in order_rows:
-        if o["customer"].strip().lower() != customer_name:
+        if o["Customer"].strip().lower() != customer_name:
             continue
         try:
-            cleaned = "".join(c for c in o["total"] if c.isdigit() or c in ".,").replace(",", ".")
+            cleaned = "".join(c for c in o["Total"] if c.isdigit() or c in ".,").replace(",", ".")
             if cleaned:
                 total_sales += float(cleaned)
         except ValueError:
             pass
-        if not currency and o["currency"].strip():
-            currency = o["currency"].strip()
-        d = o["orderDate"].strip()
+        if not currency and o["Currency"].strip():
+            currency = o["Currency"].strip()
+        d = o["Order date"].strip()
         if d and (latest_order_date is None or d > latest_order_date):
             latest_order_date = d
-        if o["reference"].strip():
-            unique_references.add(o["reference"].strip())
+        if o["Reference"].strip():
+            unique_references.add(o["Reference"].strip())
 
     # Contacts
-    contact_rows = rows_to_dicts(spreadsheet.worksheet("kundkontakter").get_all_values()[1:], CONTACT_COLUMNS)
+    contact_rows = rows_to_dicts(spreadsheet.worksheet("sales_activities").get_all_values()[1:], CONTACT_COLUMNS)
     contacts = [
-        {k: c[k] for k in ("customer", "date", "seller", "channel", "result", "comment", "contactPerson", "nextFollowUp", "orderInStockfiller")}
+        {k: c[k] for k in ("customer", "date_time", "sales_person", "contact_channel", "result", "comment", "customer_contact_person", "follow_up_date")}
         for c in contact_rows
         if c["customer"].strip().lower() == customer_name
     ]
-    contacts.sort(key=lambda x: x["date"], reverse=True)
+    contacts.sort(key=lambda x: x["date_time"], reverse=True)
 
     return jsonify({
         "total_sales": round(total_sales, 2),
@@ -140,25 +143,25 @@ def get_customer_insights():
     spreadsheet = get_spreadsheet()
     today = date.today()
 
-    # Latest nextFollowUp per customer
-    contact_rows = rows_to_dicts(spreadsheet.worksheet("kundkontakter").get_all_values()[1:], CONTACT_COLUMNS)
+    # Latest follow_up_date per customer
+    contact_rows = rows_to_dicts(spreadsheet.worksheet("sales_activities").get_all_values()[1:], CONTACT_COLUMNS)
     latest_followup = {}
     for c in contact_rows:
         name = c["customer"].strip().lower()
-        nf = c["nextFollowUp"].strip()
+        nf = c["follow_up_date"].strip()
         if nf and (name not in latest_followup or nf > latest_followup[name]):
             latest_followup[name] = nf
 
     # Latest order date and order count per customer
-    order_rows = rows_to_dicts(spreadsheet.worksheet("ordertabell").get_all_values()[1:], ORDER_COLUMNS)
+    order_rows = rows_to_dicts(spreadsheet.worksheet("order_rows").get_all_values()[1:], ORDER_COLUMNS)
     latest_order = {}
     latest_delivery = {}
     order_count = {}
     for o in order_rows:
-        name = o["customer"].strip().lower()
-        d = o["orderDate"].strip()
-        dd = o["deliveryDate"].strip()
-        ref = o["reference"].strip()
+        name = o["Customer"].strip().lower()
+        d = o["Order date"].strip()
+        dd = o["Delivery date"].strip()
+        ref = o["Reference"].strip()
         if d and (name not in latest_order or d > latest_order[name]):
             latest_order[name] = d
         if dd and (name not in latest_delivery or dd > latest_delivery[name]):
@@ -209,20 +212,20 @@ def get_customer_insights():
 def add_contact(customer_name):
     customer_name = unquote(customer_name)
     data = request.get_json()
-    sheet = get_spreadsheet().worksheet("kundkontakter")
+    sheet = get_spreadsheet().worksheet("sales_activities")
     row = [
-        data.get("date", datetime.now().strftime("%Y-%m-%d %H:%M")),
-        data.get("seller", ""),
+        data.get("date_time", datetime.now().strftime("%Y-%m-%d %H:%M")),
+        data.get("sales_person", ""),
         customer_name,
-        data.get("channel", ""),
+        data.get("contact_channel", ""),
         data.get("result", ""),
         data.get("comment", ""),
-        data.get("contactPerson", ""),
-        data.get("nextFollowUp", ""),
-        data.get("orderInStockfiller", ""),
+        data.get("customer_contact_person", ""),
+        data.get("follow_up_date", ""),
     ]
     sheet.append_row(row)
     return jsonify({"ok": True})
+
 
 
 if __name__ == "__main__":

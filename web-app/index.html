@@ -483,6 +483,7 @@
     .form-field select:focus,
     .form-field textarea:focus { border-color: #1a1a2e; }
     .form-field textarea { min-height: 80px; resize: none; }
+    .form-field textarea[rows="1"] { min-height: 40px; }
 
     /* ── Contact history ── */
     .contact-item {
@@ -607,7 +608,7 @@
     #view-map {
       flex-direction: column;
     }
-    #view-map.active { display: flex; height: 100vh; overflow: hidden; }
+    #view-map.active { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
     #view-map .header { flex-shrink: 0; z-index: 10; }
     #map {
       flex: 1;
@@ -670,6 +671,8 @@
     }
     .map-stop-item { cursor: pointer; user-select: none; }
     .map-stop-item:active { background: #f5f7fa; border-radius: 6px; }
+    .map-stop-detail-btn { background: none; border: none; color: #aab; font-size: 1.3rem; padding: 8px 12px; cursor: pointer; flex-shrink: 0; line-height: 1; }
+    .map-stop-detail-btn:active { color: #1a1a2e; }
     .stop-num.route-start { background: #22c55e; }
     .stop-num.route-stop  { background: #3b82f6; }
     .map-stop-item.route-selected { background: #f0f7ff; border-radius: 6px; padding-left: 4px; padding-right: 4px; }
@@ -816,7 +819,6 @@
       <div class="info-row"><span class="label">Telefon</span><a href="#" id="d-phone">—</a></div>
       <div class="info-row"><span class="label">Email</span><a href="#" id="d-email">—</a></div>
       <div class="info-row"><span class="label">Adress</span><span class="value" id="d-address">—</span></div>
-      <div class="info-row"><span class="label">Kontaktperson</span><span class="value" id="d-contactperson">—</span></div>
     </div>
 
     <!-- Senaste aktivitet -->
@@ -828,7 +830,6 @@
       <div class="activity-row"><span class="activity-label">Resultat</span><span class="activity-value" id="d-act-result">—</span></div>
       <div class="activity-row"><span class="activity-label">Kontaktperson</span><span class="activity-value" id="d-act-contactperson">—</span></div>
       <div class="activity-row"><span class="activity-label">Nästa uppföljning</span><span class="activity-value" id="d-act-nextfollowup">—</span></div>
-      <div class="activity-row"><span class="activity-label">Order i Stockfiller</span><span class="activity-value" id="d-act-stockfiller">—</span></div>
       <div class="activity-comment" id="d-act-comment" style="display:none"></div>
     </div>
 
@@ -858,11 +859,11 @@
       <input type="hidden" id="f-date" />
       <div class="form-field">
         <label>Säljare</label>
-        <input type="text" id="f-seller" placeholder="Ditt namn" />
+        <textarea id="f-seller" placeholder="Ditt namn" rows="1"></textarea>
       </div>
       <div class="form-field">
         <label>Kontaktperson</label>
-        <input type="text" id="f-contactPerson" placeholder="Namn på butiken" />
+        <textarea id="f-contactPerson" placeholder="Namn på butiken" rows="1"></textarea>
       </div>
       <div class="form-field">
         <label>Kanal</label>
@@ -893,10 +894,6 @@
       <div class="form-field">
         <label>Nästa uppföljning</label>
         <input type="date" id="f-nextFollowUp" />
-      </div>
-      <div class="form-field">
-        <label>Order i Stockfiller</label>
-        <input type="text" id="f-orderInStockfiller" placeholder="" />
       </div>
 
     </div>
@@ -989,10 +986,12 @@
   // ── Build multi-select dropdowns ──
   function buildDropdowns() {
     const unique = (key) => [...new Set(customers.map(c => c[key]).filter(Boolean))].sort();
-    setupMultiSelect("segment",     "ms-btn-segment",     "ms-panel-segment",     unique("customerSegment"),   "Alla segment");
-    setupMultiSelect("responsible", "ms-btn-responsible", "ms-panel-responsible", unique("customerResponsible"), "Alla ansvariga");
+    setupMultiSelect("segment",     "ms-btn-segment",     "ms-panel-segment",     unique("customer_segment"),   "Alla segment");
+    setupMultiSelect("responsible", "ms-btn-responsible", "ms-panel-responsible", unique("sales_person"), "Alla ansvariga");
     setupMultiSelect("city",        "ms-btn-city",        "ms-panel-city",        unique("city"),              "Alla städer");
   }
+
+  const _multiSelectInit = new Set();
 
   function setupMultiSelect(key, btnId, panelId, values, placeholder) {
     const btn   = document.getElementById(btnId);
@@ -1014,13 +1013,15 @@
       });
     });
 
-    btn.addEventListener("click", e => {
-      e.stopPropagation();
-      document.querySelectorAll(".ms-panel.open").forEach(p => { if (p !== panel) p.classList.remove("open"); });
-      panel.classList.toggle("open");
-    });
-
-    panel.addEventListener("click", e => e.stopPropagation());
+    if (!_multiSelectInit.has(btnId)) {
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        document.querySelectorAll(".ms-panel.open").forEach(p => { if (p !== panel) p.classList.remove("open"); });
+        panel.classList.toggle("open");
+      });
+      panel.addEventListener("click", e => e.stopPropagation());
+      _multiSelectInit.add(btnId);
+    }
   }
 
   function updateBtn(btn, set, placeholder) {
@@ -1070,8 +1071,8 @@
     let filtered = customers;
 
     if (q) filtered = filtered.filter(c => c.customer.toLowerCase().includes(q));
-    if (filterState.segment.size)     filtered = filtered.filter(c => filterState.segment.has(c.customerSegment));
-    if (filterState.responsible.size) filtered = filtered.filter(c => filterState.responsible.has(c.customerResponsible));
+    if (filterState.segment.size)     filtered = filtered.filter(c => filterState.segment.has(c.customer_segment));
+    if (filterState.responsible.size) filtered = filtered.filter(c => filterState.responsible.has(c.sales_person));
     if (filterState.city.size)        filtered = filtered.filter(c => filterState.city.has(c.city));
     if (filterState.missed.size) filtered = filtered.filter(c => {
       const ins = insights[c.customer.toLowerCase()];
@@ -1105,10 +1106,10 @@
               <div class="customer-name">${esc(c.customer)}</div>
               <div class="customer-sub">${esc(c.city)}</div>
             </div>
-            ${c.customerSegment ? `<span class="segment-badge">${esc(c.customerSegment)}</span>` : ""}
+            ${c.customer_segment ? `<span class="segment-badge">${esc(c.customer_segment)}</span>` : ""}
           </div>
           <div class="card-meta">
-            ${c.customerResponsible ? `<span>&#128100; ${esc(c.customerResponsible)}</span>` : ""}
+            ${c.sales_person ? `<span>&#128100; ${esc(c.sales_person)}</span>` : ""}
           </div>
           ${(() => {
             const ins = insights[c.customer.toLowerCase()];
@@ -1158,20 +1159,19 @@
     if (allContacts.length > 0) {
       const lc = allContacts[0];
       latestSection.style.display = "block";
-      document.getElementById("d-act-date").textContent   = lc.date ? lc.date.slice(0, 10) : "—";
-      document.getElementById("d-act-seller").textContent = lc.seller || "—";
+      document.getElementById("d-act-date").textContent   = lc.date_time ? lc.date_time.slice(0, 10) : "—";
+      document.getElementById("d-act-seller").textContent = lc.sales_person || "—";
       const commentEl = document.getElementById("d-act-comment");
       if (lc.comment) { commentEl.textContent = lc.comment; commentEl.style.display = "block"; }
       else { commentEl.style.display = "none"; }
-      document.getElementById("d-act-channel").textContent       = lc.channel       || "—";
+      document.getElementById("d-act-channel").textContent       = lc.contact_channel       || "—";
       document.getElementById("d-act-result").textContent        = lc.result        || "—";
-      document.getElementById("d-act-contactperson").textContent = lc.contactPerson      || "—";
-      document.getElementById("d-act-nextfollowup").textContent  = lc.nextFollowUp       || "—";
-      document.getElementById("d-act-stockfiller").textContent   = lc.orderInStockfiller || "—";
+      document.getElementById("d-act-contactperson").textContent = lc.customer_contact_person      || "—";
+      document.getElementById("d-act-nextfollowup").textContent  = lc.follow_up_date       || "—";
       // Översikt meta
-      document.getElementById("d-last-contact").textContent = lc.date ? lc.date.slice(0, 10) : "—";
+      document.getElementById("d-last-contact").textContent = lc.date_time ? lc.date_time.slice(0, 10) : "—";
       document.getElementById("d-last-result").textContent  = lc.result || "—";
-      document.getElementById("d-next-followup").textContent = lc.nextFollowUp || "—";
+      document.getElementById("d-next-followup").textContent = lc.follow_up_date || "—";
 
       renderDetailTags();
     } else {
@@ -1186,8 +1186,8 @@
   function renderDetailTags() {
     const ins = currentCustomer ? insights[currentCustomer.customer.toLowerCase()] : null;
     const tags = [];
-    if (currentCustomer?.customerSegment) tags.push(`<span class="tag tag-blue">${esc(currentCustomer.customerSegment)}</span>`);
-    if (currentCustomer?.customerResponsible) tags.push(`<span class="tag tag-green">Ansvarig: ${esc(currentCustomer.customerResponsible)}</span>`);
+    if (currentCustomer?.customer_segment) tags.push(`<span class="tag tag-blue">${esc(currentCustomer.customer_segment)}</span>`);
+    if (currentCustomer?.sales_person) tags.push(`<span class="tag tag-green">Ansvarig: ${esc(currentCustomer.sales_person)}</span>`);
     if (ins) {
       if (ins.missad_uppfoljning) tags.push(`<span class="tag tag-orange">Missad uppföljning</span>`);
       if (ins.customer_risk === "FÖRLORAD?") tags.push(`<span class="tag tag-red">Förlorad?</span>`);
@@ -1216,17 +1216,16 @@
     list.innerHTML = visible.map((lc) => `
       <div class="history-item">
         <div class="history-summary">
-          <span class="history-date">${esc(lc.date ? lc.date.slice(0, 10) : "—")}</span>
+          <span class="history-date">${esc(lc.date_time ? lc.date_time.slice(0, 10) : "—")}</span>
           <span class="history-comment">${esc(lc.result || "—")}</span>
           <span class="history-chevron">&#9660;</span>
         </div>
         <div class="history-detail">
-          <div class="activity-row"><span class="activity-label">Säljare</span><span class="activity-value">${esc(lc.seller) || "—"}</span></div>
-          <div class="activity-row"><span class="activity-label">Kanal</span><span class="activity-value">${esc(lc.channel) || "—"}</span></div>
+          <div class="activity-row"><span class="activity-label">Säljare</span><span class="activity-value">${esc(lc.sales_person) || "—"}</span></div>
+          <div class="activity-row"><span class="activity-label">Kanal</span><span class="activity-value">${esc(lc.contact_channel) || "—"}</span></div>
           <div class="activity-row"><span class="activity-label">Resultat</span><span class="activity-value">${esc(lc.result) || "—"}</span></div>
-          <div class="activity-row"><span class="activity-label">Kontaktperson</span><span class="activity-value">${esc(lc.contactPerson) || "—"}</span></div>
-          <div class="activity-row"><span class="activity-label">Nästa uppföljning</span><span class="activity-value">${esc(lc.nextFollowUp) || "—"}</span></div>
-          <div class="activity-row"><span class="activity-label">Order i Stockfiller</span><span class="activity-value">${esc(lc.orderInStockfiller) || "—"}</span></div>
+          <div class="activity-row"><span class="activity-label">Kontaktperson</span><span class="activity-value">${esc(lc.customer_contact_person) || "—"}</span></div>
+          <div class="activity-row"><span class="activity-label">Nästa uppföljning</span><span class="activity-value">${esc(lc.follow_up_date) || "—"}</span></div>
           ${lc.comment ? `<div class="activity-comment">${esc(lc.comment)}</div>` : ""}
         </div>
       </div>
@@ -1294,18 +1293,17 @@
 
     // Kontaktuppgifter
     document.getElementById("d-address").textContent = c.address || "—";
-    document.getElementById("d-contactperson").textContent = c.contactPerson || "—";
 
     const phoneEl = document.getElementById("d-phone");
-    phoneEl.textContent = c.phoneNumber || "—";
-    phoneEl.href = c.phoneNumber ? `tel:${c.phoneNumber}` : "#";
+    phoneEl.textContent = c.phone || "—";
+    phoneEl.href = c.phone ? `tel:${c.phone}` : "#";
 
     const emailEl = document.getElementById("d-email");
     emailEl.textContent = c.email || "—";
     emailEl.href = c.email ? `mailto:${c.email}` : "#";
 
     // Ring / Mail buttons
-    document.getElementById("d-call-btn").onclick = () => { if (c.phoneNumber) window.location.href = `tel:${c.phoneNumber}`; };
+    document.getElementById("d-call-btn").onclick = () => { if (c.phone) window.location.href = `tel:${c.phone}`; };
     document.getElementById("d-mail-btn").onclick = () => { if (c.email) window.location.href = `mailto:${c.email}`; };
 
     if (stats) {
@@ -1337,7 +1335,6 @@
     document.getElementById("f-result").value = "";
     document.getElementById("f-comment").value = "";
     document.getElementById("f-nextFollowUp").value = "";
-    document.getElementById("f-orderInStockfiller").value = "";
     showView("form");
   });
 
@@ -1349,14 +1346,13 @@
   document.getElementById("form-save-btn").addEventListener("click", async () => {
     const btn = document.getElementById("form-save-btn");
     const payload = {
-      date:               document.getElementById("f-date").value,
-      seller:             document.getElementById("f-seller").value,
-      contactPerson:      document.getElementById("f-contactPerson").value,
-      channel:            document.getElementById("f-channel").value,
+      date_time:          document.getElementById("f-date").value,
+      sales_person:       document.getElementById("f-seller").value,
+      customer_contact_person: document.getElementById("f-contactPerson").value,
+      contact_channel:    document.getElementById("f-channel").value,
       result:             document.getElementById("f-result").value,
       comment:            document.getElementById("f-comment").value,
-      nextFollowUp:       document.getElementById("f-nextFollowUp").value,
-      orderInStockfiller: document.getElementById("f-orderInStockfiller").value,
+      follow_up_date:     document.getElementById("f-nextFollowUp").value,
     };
 
     if (!payload.comment.trim()) {
@@ -1394,6 +1390,7 @@
   function showView(name) {
     document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
     document.getElementById(`view-${name}`).classList.add("active");
+    document.getElementById("detail-loader").classList.remove("show");
     window.scrollTo(0, 0);
   }
 
@@ -1524,10 +1521,8 @@
   function renderMapMarkers() {
     clearMapLayers();
     mapStops.forEach(c => {
-      const routeIdx = routeInMapStops.findIndex(r => r.row === c.row);
-      const inRoute = routeIdx !== -1;
-      const isFirst = routeIdx === 0;
-      const bg = inRoute ? (isFirst ? "#22c55e" : "#3b82f6") : "#6b7280";
+      const inRoute = routeInMapStops.findIndex(r => r.row === c.row) !== -1;
+      const bg = inRoute ? "#3b82f6" : "#6b7280";
       const size = inRoute ? 22 : 18;
       const icon = L.divIcon({
         className: "",
@@ -1560,23 +1555,23 @@
     document.getElementById("map-route-count").textContent =
       n === 0 ? "Välj butiker nedan för rutt"
               : `${n} butik${n !== 1 ? "er" : ""} vald${n !== 1 ? "a" : ""} för rutt`;
-    document.getElementById("map-gmaps-btn").disabled = n < 2;
+    document.getElementById("map-gmaps-btn").disabled = mapStops.length < 1;
   }
 
   function renderMapStopList() {
     document.getElementById("map-stop-list").innerHTML = mapStops.map(c => {
       const routeIdx = routeInMapStops.findIndex(r => r.row === c.row);
       const inRoute = routeIdx !== -1;
-      const isFirst = routeIdx === 0;
-      const dotColor = inRoute ? (isFirst ? "#22c55e" : "#3b82f6") : "#d1d5db";
+      const dotColor = inRoute ? "#3b82f6" : "#d1d5db";
       const dot = `<div style="width:14px;height:14px;border-radius:50%;background:${dotColor};flex-shrink:0"></div>`;
       return `
         <div class="map-stop-item${inRoute ? " route-selected" : ""}" data-row="${c.row}">
           ${dot}
-          <div class="stop-info">
+          <div class="stop-info" style="flex:1">
             <div class="stop-name">${esc(c.customer)}</div>
             <div class="stop-city">${esc(c.city)}</div>
           </div>
+          <button class="map-stop-detail-btn" data-detail-row="${c.row}">›</button>
         </div>
       `;
     }).join("");
@@ -1584,16 +1579,23 @@
     document.querySelectorAll(".map-stop-item").forEach(item => {
       item.addEventListener("click", () => toggleMapStop(Number(item.dataset.row)));
     });
+    document.querySelectorAll(".map-stop-detail-btn").forEach(btn => {
+      btn.addEventListener("click", e => {
+        e.stopPropagation();
+        detailReturnView = "map";
+        openDetail(Number(btn.dataset.detailRow));
+      });
+    });
     updateMapRouteBar();
   }
 
 
   function openInGoogleMaps() {
-    if (routeInMapStops.length < 2) return;
-    const origin = `${routeInMapStops[0].latitude},${routeInMapStops[0].longitude}`;
-    const destination = `${routeInMapStops[routeInMapStops.length - 1].latitude},${routeInMapStops[routeInMapStops.length - 1].longitude}`;
-    const waypoints = routeInMapStops.slice(1, -1).map(c => `${c.latitude},${c.longitude}`).join("|");
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ""}`;
+    if (mapStops.length < 1) return;
+    const stops = routeInMapStops.length > 0 ? routeInMapStops : mapStops;
+    const destination = `${stops[stops.length - 1].latitude},${stops[stops.length - 1].longitude}`;
+    const waypoints = stops.slice(0, -1).map(c => `${c.latitude},${c.longitude}`).join("|");
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${destination}${waypoints ? `&waypoints=${waypoints}` : ""}`;
     window.open(url, "_blank");
   }
 
